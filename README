@@ -1,0 +1,122 @@
+What I have often wanted was some semi-automated way to produce filters
+written in C. That way, with some little language, one could produce a
+filter, compile it and run it repeatedly. Not only that, adding to the
+produced filter would be possible, since you would have the C code.
+Plus it would run quickly. I wrote enough small filters to do
+specialised little tasks to be sick of doing it, and so I wrote "filta"
+to do the job.
+
+The language of filta is currently very small. I'd go so far as to say
+it's tiny. But I have found it very useful - which is more than I can
+say for some of the other things I've done. Here are the only tokens
+recognised in the language...
+
+
+== = != < > && || if else ( ) { } f# $# n t s "string" split
+
+Like awk, filta splits all input lines by white space (' ' and TAB).
+This can be changed or even turned off. The only action available is to
+print. The only other things you can do are comparisons and
+line-splitting. In the above, # refers to a positive integer. f# is
+equivalent to $# and refers to the #'th field on the current input
+line. f0 (and $0) refer to the whole line, f$ (and $$) refer to the
+last field.
+
+A string enclosed in double quotes is printed - C character
+representations ("\n", "\t" etc etc) may be used. n, t and s are
+equivalent to "\n", "\t" and " " respectively. (n = newline, t = tab, s
+= space).
+
+if, else, (, ), {, }, &&, ||, ==, !=, <, and > are all used as in C. 
+= is entirely equivalent to ==.
+
+The word "split" should be followed by a string of characters that the
+input line should be split up on. Thus split " \t" splits on white
+space, split ":" splits on colons. split "" does nothing. In
+particular, if the first command in a filta program is a split, then
+the default splitting on white space is not done. So to turn off
+splitting altogether one does split "" first off.
+
+There is no need to separate commands with white space. Thus f1f2 means
+print field one and field two, as does f1 f2 and $1$2 and $1 $2.
+
+Here is a simple use of filta.
+
+    cat file | filta 'f1 "\n"'
+
+which prints the first white space separated field of each line and
+then a newline. This could have also been done more simply as "filta
+f1n".  Here is a more complicated example.
+
+    cat file | filta 'if (f1 = f2) f3 else f4'
+
+And you can probably work out what this does. Of course this could have
+been written as filta 'if(f1=f2)f3elsef4' for those that don't like
+spaces. Note the hard single quotes around the program to hide the
+parentheses (or double quotes) from the shell.
+
+    cat /etc/passwd | 
+    filta 'split":" if (f1 = "tcjones") "Terry's home directory is " f6n'
+
+etc. It is possible to leave out the "if" as well. Thus the above could
+have started off filta 'split":" (f1="tcjones")' etc etc.
+
+It is also possible to split a line more than once. For example
+(assuming my encrypted password contains no commas!)
+
+    cat /etc/passwd 
+    | filta -s 'split":" if ($1="tcjones") {split"," "my office is " f2n}'
+
+And so on.
+
+
+So what does filta actually do? Your small program is read and parsed
+and a simple (usually 50 odd lines) C program is produced. This is then
+executed by filta and as a result gets the standard input that filta
+was supplied with. By necessity the resulting a.out file is left in the
+current directory (if possible) and can (and SHOULD) be re-used. By
+default the source is removed before the a.out file is executed. You
+can arrange for the source to be kept with the -s flag.  So
+
+    cat file | filta -s f1 s f2n
+
+is a filter that prints the first field, a space, the second field and
+a newline BUT in addition you get to keep the C source. If you want to
+run it again you just say
+
+    cat file | a.out
+
+The source is placed in Filta.c in the current directory (if
+possible).  The filter program that is built can handle input lines of
+length up to 4K with up to 20 fields. But that's easily changed, seeing
+as -s gives you the source.
+
+If you just type
+
+    filta -s
+
+filta will wait for you to enter a program. This will be translated
+into C, the resulting code will be compiled but NOT executed. Saying
+
+    filta -s f1n
+
+is not the same. This will write the C program, compile it and execute
+it (and will therefore sit there waiting for you to type input at it).
+
+If filta is unable to write the current directory it puts the source in
+strangely named files in under /tmp and tells you where they may be found.
+
+Also valid is 
+
+    filta -f <filename>
+
+which reads the program from the file <filename>.
+
+
+
+Anyway I'm not going to go any more. There are more details it is handy
+to know, but if you want them send me mail or read the code. filta is
+not meant to be an awk replacement, it just makes it easier to do some
+things with greater speed, and easier and MUCH faster to repeat (using
+the a.out produced).  It is also very useful as a starting point for
+the writing of your own special purpose filters. Have fun.
